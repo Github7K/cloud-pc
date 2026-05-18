@@ -1,0 +1,460 @@
+name: Web-Development-AI-ML
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-2022
+    timeout-minutes: 360
+
+    steps:
+
+    ####################################################################
+    # SYSTEM INFO
+    ####################################################################
+
+    - name: Show System Info
+      run: |
+        systeminfo
+        Get-ComputerInfo | Select WindowsProductName, WindowsVersion
+
+    ####################################################################
+    # ENABLE RDP
+    ####################################################################
+
+    - name: Enable Remote Desktop
+      run: |
+        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+        -Name "fDenyTSConnections" -Value 0
+
+        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+
+    ####################################################################
+    # DISABLE SLEEP
+    ####################################################################
+
+    - name: Disable Sleep & Hibernate
+      run: |
+        powercfg -change -standby-timeout-ac 0
+        powercfg -change -hibernate-timeout-ac 0
+        powercfg -change -monitor-timeout-ac 0
+
+    ####################################################################
+    # SET PASSWORD
+    ####################################################################
+
+    - name: Set runneradmin Password
+      run: |
+        $Password = ConvertTo-SecureString "StrongPassword123!" -AsPlainText -Force
+        Set-LocalUser -Name "runneradmin" -Password $Password
+
+    ####################################################################
+    # INSTALL GOOGLE CHROME
+    ####################################################################
+
+    - name: Install Google Chrome
+      run: |
+        Invoke-WebRequest `
+        https://dl.google.com/chrome/install/latest/chrome_installer.exe `
+        -OutFile chrome_installer.exe
+
+        Start-Process `
+        -FilePath .\chrome_installer.exe `
+        -ArgumentList "/silent /install" `
+        -Wait
+
+    ####################################################################
+    # INSTALL CHROME REMOTE DESKTOP
+    ####################################################################
+
+    - name: Install Chrome Remote Desktop
+      run: |
+        Invoke-WebRequest `
+        https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi `
+        -OutFile crd.msi
+
+        Start-Process msiexec.exe `
+        -ArgumentList "/i crd.msi /quiet /norestart" `
+        -Wait
+
+    ####################################################################
+    # START CHROME REMOTE DESKTOP
+    ####################################################################
+
+    - name: Start Chrome Remote Desktop
+      env:
+        CRD_CODE: ${{ secrets.CRD_CODE }}
+      run: |
+        $path = "${env:PROGRAMFILES(X86)}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
+
+        & $path `
+        --code="$Env:CRD_CODE" `
+        --redirect-url="https://remotedesktop.google.com/_/oauthredirect" `
+        --name=$env:COMPUTERNAME
+
+    ####################################################################
+    # INSTALL GIT
+    ####################################################################
+
+    - name: Install Git
+      run: |
+        Invoke-WebRequest `
+        https://github.com/git-for-windows/git/releases/latest/download/Git-64-bit.exe `
+        -OutFile git.exe
+
+        Start-Process `
+        .\git.exe `
+        -ArgumentList "/VERYSILENT /NORESTART" `
+        -Wait
+
+    ####################################################################
+    # INSTALL VS CODE
+    ####################################################################
+
+    - name: Install VS Code
+      run: |
+        Invoke-WebRequest `
+        https://update.code.visualstudio.com/latest/win32-x64-user/stable `
+        -OutFile vscode.exe
+
+        Start-Process `
+        .\vscode.exe `
+        -ArgumentList "/VERYSILENT /NORESTART" `
+        -Wait
+
+    ####################################################################
+    # INSTALL PYTHON
+    ####################################################################
+
+    - name: Install Python
+      run: |
+        Invoke-WebRequest `
+        https://www.python.org/ftp/python/3.12.3/python-3.12.3-amd64.exe `
+        -OutFile python.exe
+
+        Start-Process `
+        .\python.exe `
+        -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" `
+        -Wait
+
+    ####################################################################
+    # INSTALL NODE.JS
+    ####################################################################
+
+    - name: Install Node.js
+      run: |
+        Invoke-WebRequest `
+        https://nodejs.org/dist/v22.2.0/node-v22.2.0-x64.msi `
+        -OutFile node.msi
+
+        Start-Process `
+        msiexec.exe `
+        -ArgumentList "/i node.msi /quiet /norestart" `
+        -Wait
+
+    ####################################################################
+    # INSTALL 7ZIP
+    ####################################################################
+
+    - name: Install 7zip
+      run: |
+        Invoke-WebRequest `
+        https://www.7-zip.org/a/7z2401-x64.exe `
+        -OutFile 7zip.exe
+
+        Start-Process `
+        .\7zip.exe `
+        -ArgumentList "/S" `
+        -Wait
+
+    ####################################################################
+    # INSTALL OLLAMA
+    ####################################################################
+
+    - name: Install Ollama
+      run: |
+        Invoke-WebRequest `
+        https://ollama.com/download/OllamaSetup.exe `
+        -OutFile ollama.exe
+
+        Start-Process `
+        .\ollama.exe `
+        -ArgumentList "/S" `
+        -Wait
+
+    ####################################################################
+    # START OLLAMA SERVICE
+    ####################################################################
+
+    - name: Start Ollama
+      run: |
+        Start-Process "C:\Users\runneradmin\AppData\Local\Programs\Ollama\ollama app.exe"
+
+    ####################################################################
+    # INSTALL DOCKER DESKTOP
+    ####################################################################
+
+    - name: Install Docker Desktop
+      run: |
+        Invoke-WebRequest `
+        https://desktop.docker.com/win/main/amd64/Docker%20Desktop%20Installer.exe `
+        -OutFile docker-installer.exe
+
+        Start-Process `
+        .\docker-installer.exe `
+        -ArgumentList "install --quiet --accept-license" `
+        -Wait
+
+    ####################################################################
+    # INSTALL NPM PACKAGES (WEB DEV)
+    ####################################################################
+
+    - name: Install NPM Web Development Tools
+      run: |
+        npm install -g @angular/cli
+        npm install -g create-react-app
+        npm install -g vue
+        npm install -g next
+        npm install -g typescript
+        npm install -g webpack
+        npm install -g gulp
+        npm install -g eslint
+        npm install -g prettier
+
+    ####################################################################
+    # INSTALL PYTHON ML/AI PACKAGES
+    ####################################################################
+
+    - name: Install Python AI/ML Libraries
+      run: |
+        pip install --upgrade pip
+        pip install numpy
+        pip install pandas
+        pip install matplotlib
+        pip install scikit-learn
+        pip install tensorflow
+        pip install torch
+        pip install transformers
+        pip install jupyter
+        pip install jupyterlab
+        pip install flask
+        pip install django
+        pip install fastapi
+        pip install requests
+        pip install beautifulsoup4
+        pip install selenium
+        pip install opencv-python
+        pip install pillow
+
+    ####################################################################
+    # INSTALL POSTMAN
+    ####################################################################
+
+    - name: Install Postman
+      run: |
+        Invoke-WebRequest `
+        https://dl.pstmn.io/download/latest/win64 `
+        -OutFile postman-setup.exe
+
+        Start-Process `
+        .\postman-setup.exe `
+        -ArgumentList "/S" `
+        -Wait
+
+    ####################################################################
+    # INSTALL VS CODE EXTENSIONS (WEB DEV)
+    ####################################################################
+
+    - name: Install VS Code Web Development Extensions
+      run: |
+        $codePath = "C:\Users\runneradmin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd"
+
+        # Web Development
+        & $codePath --install-extension ms-vscode.vscode-typescript-next
+        & $codePath --install-extension bradlc.vscode-tailwindcss
+        & $codePath --install-extension formulahendry.auto-rename-tag
+        & $codePath --install-extension dbaeumer.vscode-eslint
+        & $codePath --install-extension esbenp.prettier-vscode
+        & $codePath --install-extension ritwickdey.LiveServer
+        & $codePath --install-extension ms-azuretools.vscode-docker
+
+        # AI/ML
+        & $codePath --install-extension ms-python.python
+        & $codePath --install-extension ms-toolsai.jupyter
+        & $codePath --install-extension ms-ai-tools.vscode-ai
+
+        # Python
+        & $codePath --install-extension ms-python.vscode-pylance
+        & $codePath --install-extension ms-python.debugpy
+
+        # General
+        & $codePath --install-extension GitHub.copilot
+        & $codePath --install-extension eamodio.gitlens
+
+    ####################################################################
+    # INSTALL GIT DESKTOP
+    ####################################################################
+
+    - name: Install GitHub Desktop
+      run: |
+        Invoke-WebRequest `
+        https://central.github.com/deployments/desktop/desktop/latest/win32 `
+        -OutFile github-desktop-setup.exe
+
+        Start-Process `
+        .\github-desktop-setup.exe `
+        -ArgumentList "--silent" `
+        -Wait
+
+    ####################################################################
+    # CREATE WORKSPACE
+    ####################################################################
+
+    - name: Create Workspace Folder
+      run: |
+        New-Item `
+        -ItemType Directory `
+        -Path C:\Workspace `
+        -Force
+
+        New-Item `
+        -ItemType Directory `
+        -Path C:\Workspace\web-projects `
+        -Force
+
+        New-Item `
+        -ItemType Directory `
+        -Path C:\Workspace\ml-projects `
+        -Force
+
+        New-Item `
+        -ItemType Directory `
+        -Path C:\Workspace\notebooks `
+        -Force
+
+    ####################################################################
+    # CREATE README
+    ####################################################################
+
+    - name: Create Workspace README
+      run: |
+        $readmeContent = @"
+# Web Development + AI/ML Cloud PC
+
+This cloud PC includes tools for web development and AI/ML projects.
+
+## Web Development Tools
+- Node.js with npm
+- Angular CLI
+- React (create-react-app)
+- Vue.js
+- Next.js
+- TypeScript
+- Webpack & Gulp
+- ESLint & Prettier
+- Docker Desktop
+- Postman
+- GitHub Desktop
+- Git
+- VS Code with web dev extensions
+
+## AI/ML Tools
+- Python with pip
+- TensorFlow
+- PyTorch
+- Scikit-learn
+- Pandas & NumPy
+- Jupyter Lab
+- OpenCV
+- Transformers (Hugging Face)
+- Ollama (for local LLMs)
+
+## Folders
+- C:\Workspace\web-projects - for web development projects
+- C:\Workspace\ml-projects - for machine learning projects
+- C:\Workspace\notebooks - for Jupyter notebooks
+
+## Getting Started
+1. Open VS Code and create a new project
+2. Use NPM to initialize web projects
+3. Use Python for ML/AI work
+4. Run Jupyter Lab: `jupyter lab`
+5. Use Postman for API testing
+6. Commit to GitHub using GitHub Desktop or Git CLI
+
+## Keep in Mind
+- This machine will be deleted after 6 hours
+- Save your work frequently to GitHub
+- Use `git push` to backup your code
+
+Happy coding!
+"@
+
+        Set-Content -Path "C:\Workspace\README.md" -Value $readmeContent
+
+    ####################################################################
+    # INSTALL JUPYTER LAB
+    ####################################################################
+
+    - name: Create Jupyter Lab Launcher
+      run: |
+        $jupyterLauncher = @"
+        @echo off
+        jupyter lab --NotebookApp.token='' --NotebookApp.password='' --ip=0.0.0.0 --port=8888
+        "@
+
+        Set-Content -Path "C:\Workspace\launch-jupyter.bat" -Value $jupyterLauncher
+
+    ####################################################################
+    # OPEN APPLICATIONS
+    ####################################################################
+
+    - name: Launch Applications
+      run: |
+        Start-Process "C:\Program Files\Google\Chrome\Application\chrome.exe"
+
+        Start-Process `
+        "C:\Users\runneradmin\AppData\Local\Programs\Microsoft VS Code\Code.exe"
+
+    ####################################################################
+    # SHOW INFO
+    ####################################################################
+
+    - name: Show Login Info & Environment
+      run: |
+        Write-Host ""
+        Write-Host "======================================"
+        Write-Host "WEB DEV + AI/ML CLOUD PC READY"
+        Write-Host "======================================"
+        Write-Host "Username: runneradmin"
+        Write-Host "Password: StrongPassword123!"
+        Write-Host ""
+        Write-Host "Web Development:"
+        Write-Host "- Node.js: $(node --version)"
+        Write-Host "- npm: $(npm --version)"
+        Write-Host "- Docker: Installed"
+        Write-Host "- VS Code: Installed with extensions"
+        Write-Host ""
+        Write-Host "AI/ML:"
+        Write-Host "- Python: $(python --version)"
+        Write-Host "- TensorFlow: pip list | grep tensorflow"
+        Write-Host "- PyTorch: pip list | grep torch"
+        Write-Host "- Jupyter Lab: Run 'jupyter lab' in terminal"
+        Write-Host "- Ollama: Ready for local LLMs"
+        Write-Host ""
+        Write-Host "Workspaces:"
+        Write-Host "- Web projects: C:\Workspace\web-projects"
+        Write-Host "- ML projects: C:\Workspace\ml-projects"
+        Write-Host "- Notebooks: C:\Workspace\notebooks"
+        Write-Host "======================================"
+
+    ####################################################################
+    # KEEP RUNNER ALIVE
+    ####################################################################
+
+    - name: Keep Runner Alive
+      run: |
+        Write-Host "Keeping machine alive for 6 hours..."
+        Start-Sleep -Seconds 21600
+api
