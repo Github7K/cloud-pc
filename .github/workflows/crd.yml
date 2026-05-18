@@ -1,4 +1,4 @@
-name: Advanced-Chrome-Remote-Desktop
+name: Chrome Remote Desktop
 
 on:
   workflow_dispatch:
@@ -10,242 +10,52 @@ jobs:
 
     steps:
 
-    ####################################################################
-    # SYSTEM INFO
-    ####################################################################
-
-    - name: Show System Info
-      run: |
-        systeminfo
-        Get-ComputerInfo | Select WindowsProductName, WindowsVersion
-
-    ####################################################################
-    # ENABLE RDP
-    ####################################################################
-
-    - name: Enable Remote Desktop
+    - name: Enable RDP
+      shell: powershell
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
         -Name "fDenyTSConnections" -Value 0
 
         Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
 
-    ####################################################################
-    # DISABLE SLEEP
-    ####################################################################
-
-    - name: Disable Sleep & Hibernate
+    - name: Set Password
+      shell: powershell
       run: |
-        powercfg -change -standby-timeout-ac 0
-        powercfg -change -hibernate-timeout-ac 0
-        powercfg -change -monitor-timeout-ac 0
+        $password = ConvertTo-SecureString "${{ secrets.CRD_PIN }}" -AsPlainText -Force
+        Set-LocalUser -Name "runneradmin" -Password $password
 
-    ####################################################################
-    # SET PASSWORD
-    ####################################################################
-
-    - name: Set runneradmin Password
-      run: |
-        $Password = ConvertTo-SecureString "StrongPassword123!" -AsPlainText -Force
-        Set-LocalUser -Name "runneradmin" -Password $Password
-
-    ####################################################################
-    # INSTALL GOOGLE CHROME
-    ####################################################################
-
-    - name: Install Google Chrome
+    - name: Download Chrome Remote Desktop
+      shell: powershell
       run: |
         Invoke-WebRequest `
-        https://dl.google.com/chrome/install/latest/chrome_installer.exe `
-        -OutFile chrome_installer.exe
-
-        Start-Process `
-        -FilePath .\chrome_installer.exe `
-        -ArgumentList "/silent /install" `
-        -Wait
-
-    ####################################################################
-    # INSTALL CHROME REMOTE DESKTOP
-    ####################################################################
+        -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" `
+        -OutFile "$env:TEMP\crd.msi"
 
     - name: Install Chrome Remote Desktop
+      shell: powershell
       run: |
-        Invoke-WebRequest `
-        https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi `
-        -OutFile crd.msi
-
         Start-Process msiexec.exe `
-        -ArgumentList "/i crd.msi /quiet /norestart" `
+        -ArgumentList "/i $env:TEMP\crd.msi /quiet /norestart" `
         -Wait
-
-    ####################################################################
-    # START CHROME REMOTE DESKTOP
-    ####################################################################
 
     - name: Start Chrome Remote Desktop
-      env:
-        CRD_CODE: ${{ secrets.CRD_CODE }}
+      shell: powershell
       run: |
-        $path = "${env:PROGRAMFILES(X86)}\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe"
+        $pin = "${{ secrets.CRD_PIN }}"
+        $code = "${{ secrets.CRD_CODE }}"
 
-        & $path `
-        --code="$Env:CRD_CODE" `
+        & "$env:PROGRAMFILES(X86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" `
+        --code="$code" `
         --redirect-url="https://remotedesktop.google.com/_/oauthredirect" `
-        --name=$env:COMPUTERNAME
-
-    ####################################################################
-    # INSTALL GIT
-    ####################################################################
-
-    - name: Install Git
-      run: |
-        Invoke-WebRequest `
-        https://github.com/git-for-windows/git/releases/latest/download/Git-64-bit.exe `
-        -OutFile git.exe
-
-        Start-Process `
-        .\git.exe `
-        -ArgumentList "/VERYSILENT /NORESTART" `
-        -Wait
-
-    ####################################################################
-    # INSTALL VS CODE
-    ####################################################################
-
-    - name: Install VS Code
-      run: |
-        Invoke-WebRequest `
-        https://update.code.visualstudio.com/latest/win32-x64-user/stable `
-        -OutFile vscode.exe
-
-        Start-Process `
-        .\vscode.exe `
-        -ArgumentList "/VERYSILENT /NORESTART" `
-        -Wait
-
-    ####################################################################
-    # INSTALL PYTHON
-    ####################################################################
-
-    - name: Install Python
-      run: |
-        Invoke-WebRequest `
-        https://www.python.org/ftp/python/3.12.3/python-3.12.3-amd64.exe `
-        -OutFile python.exe
-
-        Start-Process `
-        .\python.exe `
-        -ArgumentList "/quiet InstallAllUsers=1 PrependPath=1" `
-        -Wait
-
-    ####################################################################
-    # INSTALL NODE.JS
-    ####################################################################
-
-    - name: Install Node.js
-      run: |
-        Invoke-WebRequest `
-        https://nodejs.org/dist/v22.2.0/node-v22.2.0-x64.msi `
-        -OutFile node.msi
-
-        Start-Process `
-        msiexec.exe `
-        -ArgumentList "/i node.msi /quiet /norestart" `
-        -Wait
-
-    ####################################################################
-    # INSTALL 7ZIP
-    ####################################################################
-
-    - name: Install 7zip
-      run: |
-        Invoke-WebRequest `
-        https://www.7-zip.org/a/7z2401-x64.exe `
-        -OutFile 7zip.exe
-
-        Start-Process `
-        .\7zip.exe `
-        -ArgumentList "/S" `
-        -Wait
-
-    ####################################################################
-    # INSTALL OLLAMA
-    ####################################################################
-
-    - name: Install Ollama
-      run: |
-        Invoke-WebRequest `
-        https://ollama.com/download/OllamaSetup.exe `
-        -OutFile ollama.exe
-
-        Start-Process `
-        .\ollama.exe `
-        -ArgumentList "/S" `
-        -Wait
-
-    ####################################################################
-    # START OLLAMA SERVICE
-    ####################################################################
-
-    - name: Start Ollama
-      run: |
-        Start-Process "C:\Users\runneradmin\AppData\Local\Programs\Ollama\ollama app.exe"
-
-    ####################################################################
-    # CREATE WORKSPACE
-    ####################################################################
-
-    - name: Create Workspace Folder
-      run: |
-        New-Item `
-        -ItemType Directory `
-        -Path C:\Workspace `
-        -Force
-
-    ####################################################################
-    # INSTALL VS CODE EXTENSIONS
-    ####################################################################
-
-    - name: Install VS Code Extensions
-      run: |
-        $codePath = "C:\Users\runneradmin\AppData\Local\Programs\Microsoft VS Code\bin\code.cmd"
-
-        & $codePath --install-extension ms-python.python
-        & $codePath --install-extension ms-vscode.cpptools
-        & $codePath --install-extension esbenp.prettier-vscode
-        & $codePath --install-extension dbaeumer.vscode-eslint
-        & $codePath --install-extension GitHub.copilot
-
-    ####################################################################
-    # OPEN APPLICATIONS
-    ####################################################################
-
-    - name: Launch Applications
-      run: |
-        Start-Process "C:\Program Files\Google\Chrome\Application\chrome.exe"
-
-        Start-Process `
-        "C:\Users\runneradmin\AppData\Local\Programs\Microsoft VS Code\Code.exe"
-
-    ####################################################################
-    # SHOW INFO
-    ####################################################################
-
-    - name: Show Login Info
-      run: |
-        Write-Host ""
-        Write-Host "======================================"
-        Write-Host "CHROME REMOTE DESKTOP READY"
-        Write-Host "======================================"
-        Write-Host "Username: runneradmin"
-        Write-Host "Password: StrongPassword123!"
-        Write-Host "======================================"
-
-    ####################################################################
-    # KEEP RUNNER ALIVE
-    ####################################################################
+        --name=$env:COMPUTERNAME `
+        --pin="$pin"
 
     - name: Keep Runner Alive
+      shell: powershell
       run: |
-        Write-Host "Keeping machine alive for 6 hours..."
-        Start-Sleep -Seconds 21600
+        Write-Host "Chrome Remote Desktop Started"
+        Write-Host "Connect from https://remotedesktop.google.com/access"
+
+        for (;;) {
+          Start-Sleep -Seconds 300
+        }
