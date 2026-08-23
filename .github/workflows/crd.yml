@@ -10,52 +10,91 @@ jobs:
 
     steps:
 
-    - name: Enable RDP
-      shell: powershell
-      run: |
-        Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
-        -Name "fDenyTSConnections" -Value 0
+      - name: Enable RDP
+        shell: powershell
+        run: |
+          Set-ItemProperty `
+            -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' `
+            -Name 'fDenyTSConnections' `
+            -Value 0
 
-        Enable-NetFirewallRule -DisplayGroup "Remote Desktop"
+          Enable-NetFirewallRule -DisplayGroup 'Remote Desktop'
 
-    - name: Set Password
-      shell: powershell
-      run: |
-        $password = ConvertTo-SecureString "${{ secrets.CRD_PIN }}" -AsPlainText -Force
-        Set-LocalUser -Name "runneradmin" -Password $password
+      - name: Set Windows Password
+        shell: powershell
+        run: |
+          $password = ConvertTo-SecureString "${{ secrets.WINDOWS_PASSWORD }}" -AsPlainText -Force
 
-    - name: Download Chrome Remote Desktop
-      shell: powershell
-      run: |
-        Invoke-WebRequest `
-        -Uri "https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi" `
-        -OutFile "$env:TEMP\crd.msi"
+          Set-LocalUser `
+            -Name 'runneradmin' `
+            -Password $password
 
-    - name: Install Chrome Remote Desktop
-      shell: powershell
-      run: |
-        Start-Process msiexec.exe `
-        -ArgumentList "/i $env:TEMP\crd.msi /quiet /norestart" `
-        -Wait
+          Write-Host 'Windows password updated successfully.'
 
-    - name: Start Chrome Remote Desktop
-      shell: powershell
-      run: |
-        $pin = "${{ secrets.CRD_PIN }}"
-        $code = "${{ secrets.CRD_CODE }}"
+      - name: Download Chrome Remote Desktop
+        shell: powershell
+        run: |
+          $url = 'https://dl.google.com/edgedl/chrome-remote-desktop/chromeremotedesktophost.msi'
+          $installer = Join-Path $env:TEMP 'crd.msi'
 
-        & "$env:PROGRAMFILES(X86)\Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe" `
-        --code="$code" `
-        --redirect-url="https://remotedesktop.google.com/_/oauthredirect" `
-        --name=$env:COMPUTERNAME `
-        --pin="$pin"
+          Invoke-WebRequest `
+            -Uri $url `
+            -OutFile $installer
 
-    - name: Keep Runner Alive
-      shell: powershell
-      run: |
-        Write-Host "Chrome Remote Desktop Started"
-        Write-Host "Connect from https://remotedesktop.google.com/access"
+          Write-Host "Downloaded Chrome Remote Desktop to $installer"
 
-        for (;;) {
-          Start-Sleep -Seconds 300
-        }
+      - name: Install Chrome Remote Desktop
+        shell: powershell
+        run: |
+          $installer = Join-Path $env:TEMP 'crd.msi'
+
+          $process = Start-Process `
+            -FilePath 'msiexec.exe' `
+            -ArgumentList "/i `"$installer`" /quiet /norestart" `
+            -Wait `
+            -PassThru
+
+          if ($process.ExitCode -ne 0) {
+            throw "Chrome Remote Desktop installation failed with exit code $($process.ExitCode)"
+          }
+
+          Write-Host 'Chrome Remote Desktop installed successfully.'
+
+      - name: Start Chrome Remote Desktop
+        shell: powershell
+        run: |
+          $pin = "${{ secrets.CRD_PIN }}"
+          $code = "${{ secrets.CRD_CODE }}"
+
+          $hostExe = Join-Path `
+            ${env:ProgramFiles(x86)} `
+            'Google\Chrome Remote Desktop\CurrentVersion\remoting_start_host.exe'
+
+          if (-not (Test-Path $hostExe)) {
+            throw "Chrome Remote Desktop host executable was not found at: $hostExe"
+          }
+
+          & $hostExe `
+            --code="$code" `
+            --redirect-url="https://remotedesktop.google.com/_/oauthredirect" `
+            --name="$env:COMPUTERNAME" `
+            --pin="$pin"
+
+          if ($LASTEXITCODE -ne 0) {
+            throw "Chrome Remote Desktop host failed with exit code $LASTEXITCODE"
+          }
+
+          Write-Host 'Chrome Remote Desktop started successfully.'
+          Write-Host 'Computer name:'
+          Write-Host $env:COMPUTERNAME
+
+      - name: Keep Runner Alive
+        shell: powershell
+        run: |
+          Write-Host 'Chrome Remote Desktop is running.'
+          Write-Host 'Connect at: https://remotedesktop.google.com/access'
+          Write-Host "Computer name: $env:COMPUTERNAME"
+
+          while ($true) {
+            Start-Sleep -Seconds 300
+          }
